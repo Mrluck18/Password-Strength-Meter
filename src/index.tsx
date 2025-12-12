@@ -1,11 +1,14 @@
-import { createRoot } from 'react-dom/client';
-import { StrictMode } from 'react';
-import { App } from './App';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
 
-let container = document.getElementById("app")!;
-let root = createRoot(container)
-root.render(
-  <StrictMode>
+const container = document.getElementById("app");
+if (!container) throw new Error('Container "#app" not found');
+
+createRoot(container).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
+  </React.StrictMode>
 );
+
