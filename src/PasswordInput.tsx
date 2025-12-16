@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import "./PasswordInput.css";
+import { evaluatePasswordLocal } from "./strengthModel";
 
 export default function PasswordInput() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+
+  const strength = useMemo(() => evaluatePasswordLocal(password), [password]);
 
   return (
     <main className="page">
@@ -23,16 +26,23 @@ export default function PasswordInput() {
             placeholder="Inserisci password..."
             autoComplete="new-password"
           />
-          <button className="toggle" type="button" onClick={() => setShow((v) => !v)}>
+          <button
+            className="toggle"
+            type="button"
+            onClick={() => setShow((v) => !v)}
+          >
             {show ? "Nascondi" : "Mostra"}
           </button>
         </div>
 
         <div className="barBg" aria-hidden="true">
-          <div className="barFill" style={{ width: "0%" }} />
+          <div
+            className="barFill"
+            style={{ width: `${strength.score}%`, background: strength.color }}
+          />
         </div>
 
-        <p className="status">Inizia a digitare…</p>
+        <p className="status">{strength.label}</p>
       </section>
     </main>
   );
