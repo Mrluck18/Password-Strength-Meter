@@ -69,7 +69,7 @@ function hasCommonPatterns(pwd: string): boolean {
 }
 
 function entropyToScore(entropyBits: number): number {
-  const MAX = 60;
+  const MAX = 80;
   return Math.max(0, Math.min(100, Math.round((entropyBits / MAX) * 100)));
 }
 
