@@ -1,12 +1,46 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./PasswordInput.css";
-import { evaluatePasswordLocal } from "./strengthModel";
+import { evaluatePasswordAsync, Strength } from "./strengthModel";
+
+// Stato iniziale vuoto
+const INITIAL_STRENGTH: Strength = {
+  entropyBits: 0,
+  score: 0,
+  label: "Inizia a digitare…",
+  color: "#2d7dff",
+};
 
 export default function PasswordInput() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  
+  // Stato per il risultato
+  const [strength, setStrength] = useState<Strength>(INITIAL_STRENGTH);
+  // Stato per il caricamento (check API in corso)
+  const [isChecking, setIsChecking] = useState(false);
 
-  const strength = useMemo(() => evaluatePasswordLocal(password), [password]);
+  useEffect(() => {
+    // Debounce: non chiamare API ad ogni tasto, aspetta che l'utente si fermi un attimo (es. 300ms)
+    
+    const timer = setTimeout(async () => {
+      if (!password) {
+        setStrength(INITIAL_STRENGTH);
+        return;
+      }
+
+      setIsChecking(true); // Inizia loading
+      try {
+        const result = await evaluatePasswordAsync(password);
+        setStrength(result);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsChecking(false); // Fine loading
+      }
+    }, 500); // 500ms di ritardo
+
+    return () => clearTimeout(timer); // Cleanup se l'utente digita ancora
+  }, [password]);
 
   return (
     <main className="page">
@@ -38,11 +72,17 @@ export default function PasswordInput() {
         <div className="barBg" aria-hidden="true">
           <div
             className="barFill"
-            style={{ width: `${strength.score}%`, background: strength.color }}
+            style={{ 
+              width: `${strength.score}%`, 
+              background: strength.color,
+              opacity: isChecking ? 0.5 : 1 
+            }}
           />
         </div>
 
-        <p className="status">{strength.label}</p>
+        <p className="status">
+          {isChecking ? "Controllo database..." : strength.label}
+        </p>
       </section>
     </main>
   );
