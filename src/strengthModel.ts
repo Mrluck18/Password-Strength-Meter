@@ -62,11 +62,29 @@ function hasUpperAndSymbol(pwd: string): boolean {
 }
 
 function hasCommonPatterns(pwd: string): boolean {
-  if (/(.)\1\1/.test(pwd)) return true;
-  if (/0123|1234|2345|3456|4567|5678|6789/.test(pwd)) return true;
-  if (/abcd|bcde|cdef|defg|efgh|fghi|ghij/i.test(pwd)) return true;
+  const lower = pwd.toLowerCase();
+
+  // 1. Caratteri ripetuti (es. "aaa")
+  if (/(.)\1\1/.test(lower)) return true;
+
+  // 2. Sequenze numeriche (es. "1234", "4321")
+  if (/0123|1234|2345|3456|4567|5678|6789|7890/.test(lower)) return true;
+  if (/0987|9876|8765|7654|6543|5432|4321|3210/.test(lower)) return true;
+
+  // 3. Sequenze alfabetiche (es. "abcd", "dcba")
+  if (/abcd|bcde|cdef|defg|efgh|fghi|ghij|hijk|ijkl|jklm|klmn|lmno|mnop|nopq|opqr|pqrs|qrst|rstu|stuv|tuvw|uvwx|vwxy|wxyz/.test(lower)) return true;
+
+  // 4. Tastiera QWERTY (es. "qwer", "asdf")
+  if (/qwer|wert|erty|rtyu|tyui|yuio|uiop/.test(lower)) return true;
+  if (/asdf|sdfg|dfgh|fghj|ghjk|hjkl/.test(lower)) return true;
+  if (/zxcv|xcvb|cvbn|vbnm/.test(lower)) return true;
+
+  // 5. Anni comuni (19xx o 20xx)
+  if (/(19|20)\d{2}/.test(lower)) return true;
+
   return false;
 }
+
 
 function entropyToScore(entropyBits: number): number {
   const MAX = 80;
