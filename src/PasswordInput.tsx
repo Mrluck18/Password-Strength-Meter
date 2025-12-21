@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import "./PasswordInput.css";
 import { evaluatePasswordAsync, Strength } from "./strengthModel";
 
-// Stato iniziale vuoto
+//Stato iniziale vuoto
 const INITIAL_STRENGTH: Strength = {
   entropyBits: 0,
   score: 0,
   label: "Inizia a digitare…",
   color: "#2d7dff",
+  suggestions: [], 
 };
 
 export default function PasswordInput() {
@@ -28,16 +29,16 @@ export default function PasswordInput() {
         return;
       }
 
-      setIsChecking(true); // Inizia loading
+      setIsChecking(true);  // Inizia loading
       try {
         const result = await evaluatePasswordAsync(password);
         setStrength(result);
       } catch (error) {
         console.error(error);
       } finally {
-        setIsChecking(false); // Fine loading
+        setIsChecking(false);  // Fine loading
       }
-    }, 500); // 500ms di ritardo
+    }, 500); // 500 ms di ritardo
 
     return () => clearTimeout(timer); // Cleanup se l'utente digita ancora
   }, [password]);
@@ -83,6 +84,22 @@ export default function PasswordInput() {
         <p className="status">
           {isChecking ? "Controllo database..." : strength.label}
         </p>
+
+        {!isChecking && strength.suggestions?.length > 0 && (
+          <ul style={{ 
+            marginTop: "16px", 
+            paddingLeft: "20px", 
+            fontSize: "15px", 
+            opacity: 0.85, 
+            textAlign: "left",
+            lineHeight: "1.6"
+          }}>
+            {strength.suggestions.map((msg, idx) => (
+              <li key={idx}>{msg}</li>
+            ))}
+          </ul>
+        )}
+
       </section>
     </main>
   );

@@ -3,6 +3,7 @@ export type Strength = {
   score: number;
   label: string;
   color: string;
+  suggestions: string[];
 };
 
 // Funzione helper per calcolare SHA-1
@@ -42,7 +43,6 @@ async function checkPwned(password: string): Promise<boolean> {
     return false; // Fallback sicuro: assumiamo non compromessa se offline
   }
 }
-
 
 function baseEntropyBits(pwd: string): number {
   const L = pwd.length;
@@ -85,44 +85,69 @@ function hasCommonPatterns(pwd: string): boolean {
   return false;
 }
 
-
 function entropyToScore(entropyBits: number): number {
   const MAX = 80;
   return Math.max(0, Math.min(100, Math.round((entropyBits / MAX) * 100)));
 }
 
+function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
+  const suggestions: string[] = [];
+
+  if (isPwned) {
+    return []; 
+  }
+
+  if (pwd.length < 8) {
+    suggestions.push("Usa almeno 8 caratteri.");
+  }
+  if (!/[A-Z]/.test(pwd)) {
+    suggestions.push("Aggiungi una lettera maiuscola.");
+  }
+  if (!/[^A-Za-z0-9]/.test(pwd)) {
+    suggestions.push("Aggiungi un simbolo speciale (es. @, #, !).");
+  }
+  if (hasPattern) {
+    suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
+  }
+  if (suggestions.length === 0 && pwd.length < 12) {
+    suggestions.push("Allunga la password con più parole o caratteri casuali.");
+  }
+
+  return suggestions;
+}
 
 export async function evaluatePasswordAsync(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { entropyBits: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff" };
+    return { entropyBits: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
   }
 
-  
   let bits = baseEntropyBits(pwd);
-  if (hasUpperAndSymbol(pwd)) bits += 6;
-  if (!hasCommonPatterns(pwd)) bits += 6;
+  const hasBonus = hasUpperAndSymbol(pwd);
+  const hasPattern = hasCommonPatterns(pwd);
+
+  if (hasBonus) bits += 6;
+  if (!hasPattern) bits += 6;
+
 
   // 2. Controllo Online 
   const isPwned = await checkPwned(pwd);
   
   if (!isPwned) {
     bits += 6; 
-  } else {
-   
   }
 
   const score = entropyToScore(bits);
-
 
   let label = score < 34 ? "Debole" : score < 67 ? "Media" : "Forte";
   let color = score < 34 ? "#ff3b3b" : score < 67 ? "#ffd000" : "#00d084";
 
   if (isPwned) {
-    label = "Questa password è apparsa in database pubblici di violazioni di dati. Sostituiscila con una frase lunga o una sequenza casuale di parole";
+    label = "Questa password è apparsa in database pubblici di violazioni di dati Sostituiscila con una frase lunga o una sequenza casuale di parole";
     color = "#ff0000"; // Rosso forte
-   
   }
 
-  return { entropyBits: bits, score, label, color };
+  const suggestions = getSuggestions(pwd, hasPattern, isPwned);
+
+  return {entropyBits: bits, score, label, color, suggestions};
 }
 
