@@ -1,7 +1,7 @@
 import React from "react";
-import PasswordInput from "./PasswordInput";
+import PasswordView from "./PasswordView";
 
 export default function App() {
-  return <PasswordInput />;
+  return <PasswordView />;
 }
 

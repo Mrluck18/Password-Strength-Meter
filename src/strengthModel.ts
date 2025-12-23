@@ -16,10 +16,20 @@ async function sha1(str: string): Promise<string> {
     .toUpperCase();
 }
 
-// Funzione che controlla su HIBP usando k-anonymity
+async function richiediRange(prefissoHash: string): Promise<string> {
+  const response = await 
+  fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
+  if (!response.ok) throw new Error("Network error");
+  return await response.text(); // listaSuffissi 
+}
+
+function cercaSuffisso(listaSuffissi: string, suffisso: string): boolean {
+  const regex = new RegExp(`^${suffisso}:`, "m");
+  return regex.test(listaSuffissi);
+}  
+  
 async function checkPwned(password: string): Promise<boolean> {
   if (!password) return false;
-  
   // 1. Calcola Hash SHA-1
   const hash = await sha1(password);
   
@@ -28,23 +38,15 @@ async function checkPwned(password: string): Promise<boolean> {
   const suffix = hash.substring(5);
 
   try {
-    // 3. Chiama API solo con il prefisso NON inviando la password intera!
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-    if (!response.ok) throw new Error("Network error");
-    
-    const text = await response.text();
-    
-    // 4. Cerca se il suffisso è nella lista restituita
-    // La risposta è tipo: "0018A45C4D1:2", "00D4F66209:1", ecc.
-    const regex = new RegExp(`^${suffix}:`, "m");
-    return regex.test(text); // True se trovata (compromessa)
+    const listaSuffissi = await richiediRange(prefix);
+    return cercaSuffisso(listaSuffissi, suffix);
   } catch (err) {
     console.warn("Impossibile verificare HIBP, ignoro check online.", err);
     return false; // Fallback sicuro: assumiamo non compromessa se offline
   }
 }
 
-function baseEntropyBits(pwd: string): number {
+function calcolaEntropiaLocale(pwd: string): number {
   const L = pwd.length;
   if (L === 0) return 0;
   let bits = 0;
@@ -61,7 +63,7 @@ function hasUpperAndSymbol(pwd: string): boolean {
   return hasUpper && hasSymbol;
 }
 
-function hasCommonPatterns(pwd: string): boolean {
+function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
   // 1. Caratteri ripetuti (es. "aaa")
@@ -116,14 +118,14 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
   return suggestions;
 }
 
-export async function evaluatePasswordAsync(pwd: string): Promise<Strength> {
+export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
     return { entropyBits: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
-  }
-
-  let bits = baseEntropyBits(pwd);
+  }  
+  
+  let bits = calcolaEntropiaLocale(pwd);
   const hasBonus = hasUpperAndSymbol(pwd);
-  const hasPattern = hasCommonPatterns(pwd);
+  const hasPattern = controlloPattern(pwd);
 
   if (hasBonus) bits += 6;
   if (!hasPattern) bits += 6;
@@ -148,6 +150,5 @@ export async function evaluatePasswordAsync(pwd: string): Promise<Strength> {
 
   const suggestions = getSuggestions(pwd, hasPattern, isPwned);
 
-  return {entropyBits: bits, score, label, color, suggestions};
-}
-
+  return {entropyBits: bits, score, label, color, suggestions};  
+} 
