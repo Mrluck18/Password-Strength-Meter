@@ -17,8 +17,7 @@ async function sha1(str: string): Promise<string> {
 }
 
 async function richiediRange(prefissoHash: string): Promise<string> {
-  const response = await 
-  fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
+  const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
   return await response.text(); // listaSuffissi 
 }

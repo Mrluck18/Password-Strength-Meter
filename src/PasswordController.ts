@@ -45,14 +45,25 @@ export function usePasswordController() {
     return () => clearTimeout(timer); // Cleanup se l'utente digita ancora
   }, [password]);
 
-  // Gestisce input dell'utente dalla View
-  const handlePasswordChange = (newPassword: string) => {
-   setPassword(newPassword);
-  };
-  
   // Gestisce toggle visibilità password
   const handleToggleVisibility = () => {
     setShowPassword((prev) => !prev);
+  };
+  
+  // Gestisce input dell'utente dalla View
+  const [validationError, setValidationError] = useState(false);
+
+  const handlePasswordChange = (newPassword: string) => {
+  const hasInvalidChars = /[^\x20-\x7E]/.test(newPassword);
+  
+  if (hasInvalidChars && newPassword !== "") {
+    setValidationError(true);
+    setTimeout(() => setValidationError(false), 2000);
+    return; // NON aggiorna password
+  }
+  
+  setPassword(newPassword);
+  setValidationError(false);
   };
 
   // API pubblica del Controller per la View
@@ -62,6 +73,7 @@ export function usePasswordController() {
     showPassword,
     strength,
     isChecking,
+    validationError,
     // Azioni disponibili
     richiestaAnalisiPassword: handlePasswordChange,
     onToggleVisibility: handleToggleVisibility,

@@ -9,6 +9,7 @@ export default function PasswordView() {
     showPassword,
     strength,
     isChecking,
+    validationError,
     richiestaAnalisiPassword,
     onToggleVisibility,
   } = usePasswordController();
@@ -42,6 +43,12 @@ export default function PasswordView() {
           </button>
         </div>
 
+        {validationError && (
+          <p style={{ color: '#ff3b3b', fontSize: '14px', marginTop: '8px' }}>
+            Sono ammessi solo caratteri alfanumerici e simboli speciali
+          </p>
+         )}
+         
         <div className="barBg" aria-hidden="true">
           <div
             className="barFill"
@@ -78,3 +85,4 @@ export default function PasswordView() {
     </main>
   );
 }
+
