@@ -56,11 +56,7 @@ function calcolaEntropiaLocale(pwd: string): number {
   return bits;
 }
 
-function hasUpperAndSymbol(pwd: string): boolean {
-  const hasUpper = /[A-Z]/.test(pwd);
-  const hasSymbol = /[^A-Za-z0-9]/.test(pwd);
-  return hasUpper && hasSymbol;
-}
+
 
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
@@ -123,10 +119,8 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   }  
   
   let bits = calcolaEntropiaLocale(pwd);
-  const hasBonus = hasUpperAndSymbol(pwd);
   const hasPattern = controlloPattern(pwd);
 
-  if (hasBonus) bits += 6;
   if (!hasPattern) bits += 6;
 
 
