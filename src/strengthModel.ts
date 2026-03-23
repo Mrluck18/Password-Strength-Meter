@@ -97,15 +97,11 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
   if (pwd.length < 8) {
     suggestions.push("Usa almeno 8 caratteri.");
   }
-  if (!/[A-Z]/.test(pwd)) {
-    suggestions.push("Aggiungi una lettera maiuscola.");
-  }
-  if (!/[^A-Za-z0-9]/.test(pwd)) {
-    suggestions.push("Aggiungi un simbolo speciale (es. @, #, !).");
-  }
+  
   if (hasPattern) {
     suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
   }
+  
   if (suggestions.length === 0 && pwd.length < 12) {
     suggestions.push("Allunga la password con più parole o caratteri casuali.");
   }
