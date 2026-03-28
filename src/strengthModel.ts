@@ -1,5 +1,5 @@
 export type Strength = {
-  entropyBits: number;
+  baseScore: number;
   score: number;
   label: string;
   color: string;
@@ -45,17 +45,16 @@ async function checkPwned(password: string): Promise<boolean> {
   }
 }
 
-function calcolaEntropiaLocale(pwd: string): number {
+function calcolaScoreNIST(pwd: string): number {
   const L = pwd.length;
-  if (L === 0) return 0;
-  let bits = 0;
-  bits += 4;
-  bits += Math.min(Math.max(L - 1, 0), 7) * 2;
-  bits += Math.min(Math.max(L - 8, 0), 12) * 1.5;
-  bits += Math.max(L - 20, 0) * 1;
-  return bits;
+  if (L < 8) return 0;
+  let base = 0;
+  if (L >= 8)  base += 20; // (20 < 34 → Debole)
+  if (L >= 12) base += 17; // totale 37 → supera soglia "Media" (37 ≥ 34 ✓)
+  if (L >= 15) base += 30; // totale 67 → soglia "Forte" NIST §3.1.1 SHALL (67 ≥ 67 ✓)
+  if (L >= 20) base += 13; // totale 80 → max passphrase bonus
+  return base;             // max 80
 }
-
 
 
 function controlloPattern(pwd: string): boolean {
@@ -82,11 +81,6 @@ function controlloPattern(pwd: string): boolean {
   return false;
 }
 
-function entropyToScore(entropyBits: number): number {
-  const MAX = 80;
-  return Math.max(0, Math.min(100, Math.round((entropyBits / MAX) * 100)));
-}
-
 function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
   const suggestions: string[] = [];
 
@@ -111,23 +105,25 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { entropyBits: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
+    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
   }  
   
-  let bits = calcolaEntropiaLocale(pwd);
+  const base = calcolaScoreNIST(pwd);
   const hasPattern = controlloPattern(pwd);
+  
+  let scoreCalc = base;  
 
-  if (!hasPattern) bits += 6;
+  if (!hasPattern) scoreCalc += 6;
 
 
   // 2. Controllo Online 
   const isPwned = await checkPwned(pwd);
   
   if (!isPwned) {
-    bits += 6; 
+    scoreCalc += 6; 
   }
-
-  const score = entropyToScore(bits);
+  
+  const score = Math.min(100, Math.round(scoreCalc));
 
   let label = score < 34 ? "Debole" : score < 67 ? "Media" : "Forte";
   let color = score < 34 ? "#ff3b3b" : score < 67 ? "#ffd000" : "#00d084";
@@ -139,5 +135,5 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
 
   const suggestions = getSuggestions(pwd, hasPattern, isPwned);
 
-  return {entropyBits: bits, score, label, color, suggestions};  
+  return {baseScore: base, score, label, color, suggestions};  
 } 
