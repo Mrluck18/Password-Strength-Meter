@@ -81,6 +81,26 @@ function controlloPattern(pwd: string): boolean {
   return false;
 }
 
+
+function computeLabelAndColor(
+  score: number,
+  L: number,
+  isPwned: boolean
+): { label: string; color: string } {
+  if (isPwned) {
+    return {
+      label:
+        "Questa password è apparsa in database pubblici di violazioni di dati. " +
+        "Sostituiscila con una frase lunga o una sequenza casuale di parole.",
+      color: "#ff0000",
+    };
+  }
+  // "Forte" richiede esplicitamente L≥15 [NIST §3.1.1]
+  if (score >= 67 && L >= 15) return { label: "Forte",  color: "#00d084" };
+  if (score >= 34 && L >= 8)  return { label: "Media",  color: "#ffd000" };
+  return                             { label: "Debole", color: "#ff3b3b" };
+}
+
 function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
   const suggestions: string[] = [];
 
@@ -123,15 +143,8 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
     scoreCalc += 6; 
   }
   
-  const score = Math.min(100, Math.round(scoreCalc));
-
-  let label = score < 34 ? "Debole" : score < 67 ? "Media" : "Forte";
-  let color = score < 34 ? "#ff3b3b" : score < 67 ? "#ffd000" : "#00d084";
-
-  if (isPwned) {
-    label = "Questa password è apparsa in database pubblici di violazioni di dati Sostituiscila con una frase lunga o una sequenza casuale di parole";
-    color = "#ff0000"; // Rosso forte
-  }
+  const score = isPwned ? 0 : Math.min(100, Math.round(scoreCalc));
+  const { label, color } = computeLabelAndColor(score, pwd.length, isPwned);
 
   const suggestions = getSuggestions(pwd, hasPattern, isPwned);
 
