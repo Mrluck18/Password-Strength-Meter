@@ -1,3 +1,6 @@
+import { sha1 } from "./cryptoUtils";
+import { isInBlacklist } from "./blacklist";
+
 export type Strength = {
   baseScore: number;
   score: number;
@@ -5,16 +8,6 @@ export type Strength = {
   color: string;
   suggestions: string[];
 };
-
-// Funzione helper per calcolare SHA-1
-async function sha1(str: string): Promise<string> {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest("SHA-1", enc.encode(str));
-  return Array.from(new Uint8Array(hash))
-    .map((v) => v.toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase();
-}
 
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
@@ -43,6 +36,11 @@ async function checkPwned(password: string): Promise<boolean> {
     console.warn("Impossibile verificare HIBP, ignoro check online.", err);
     return false; // Fallback sicuro: assumiamo non compromessa se offline
   }
+}
+
+//Blacklist locale — primary check
+async function checkBlacklistLocale(pwd: string): Promise<boolean> {
+  return isInBlacklist(pwd);
 }
 
 function calcolaScoreNIST(pwd: string): number {
@@ -136,17 +134,24 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!hasPattern) scoreCalc += 6;
 
 
-  // 2. Controllo Online 
-  const isPwned = await checkPwned(pwd);
-  
-  if (!isPwned) {
-    scoreCalc += 6; 
-  }
-  
-  const score = isPwned ? 0 : Math.min(100, Math.round(scoreCalc));
-  const { label, color } = computeLabelAndColor(score, pwd.length, isPwned);
+  // Blacklist-primary → HIBP solo come fallback online
+  const isBlacklisted = await checkBlacklistLocale(pwd);
 
-  const suggestions = getSuggestions(pwd, hasPattern, isPwned);
+  let isPwned = false;
+  if (!isBlacklisted) {
+    // Chiama HIBP solo se la blacklist locale non ha trovato match:
+    // evita una chiamata di rete inutile per le password più comuni.
+    isPwned = await checkPwned(pwd);
+  }
+
+  if (!isPwned && !isBlacklisted) {
+    scoreCalc += 6;
+  }
+   
+  const score = (isPwned || isBlacklisted) ? 0 : Math.min(100, Math.round(scoreCalc));
+  const { label, color } = computeLabelAndColor(score, pwd.length, isPwned || isBlacklisted);
+
+  const suggestions = getSuggestions(pwd, hasPattern, isPwned || isBlacklisted);
 
   return {baseScore: base, score, label, color, suggestions};  
 } 
