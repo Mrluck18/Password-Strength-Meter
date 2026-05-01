@@ -144,14 +144,13 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
     isPwned = await checkPwned(pwd);
   }
 
-  if (!isPwned && !isBlacklisted) {
-    scoreCalc += 6;
-  }
-   
-  const score = (isPwned || isBlacklisted) ? 0 : Math.min(100, Math.round(scoreCalc));
-  const { label, color } = computeLabelAndColor(score, pwd.length, isPwned || isBlacklisted);
+  const isCompromised = isBlacklisted || isPwned;
 
-  const suggestions = getSuggestions(pwd, hasPattern, isPwned || isBlacklisted);
+  if (!isCompromised) scoreCalc += 6;
+
+  const score = isCompromised ? 0 : Math.min(100, Math.round(scoreCalc));
+  const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
+  const suggestions = getSuggestions(pwd, hasPattern, isCompromised);
 
   return {baseScore: base, score, label, color, suggestions};  
 } 
