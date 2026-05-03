@@ -1,12 +1,33 @@
 import { sha1 } from "./cryptoUtils";
 import { isInBlacklist } from "./blacklist";
 
+export enum PatternType {
+  KEYBOARD_WALK = "KEYBOARD_WALK",
+  DATE = "DATE",
+  YEAR = "YEAR",
+  LEET = "LEET",
+  REPEATED = "REPEATED",
+  SEQUENCE_ALPHA = "SEQUENCE_ALPHA",
+  SEQUENCE_NUM = "SEQUENCE_NUM",
+  DICTIONARY = "DICTIONARY",
+  STRUCTURAL = "STRUCTURAL",
+}
+
+export interface PatternMatch {
+  type: PatternType; // categoria del pattern
+  segment: string;      // sottostringa esatta rilevata nella password
+  start: number;      // indice iniziale (incluso)
+  end: number;      // indice finale (escluso)
+  penalty: number;      // penalità in punti (valore positivo, verrà sottratto)
+}
+
 export type Strength = {
   baseScore: number;
   score: number;
   label: string;
   color: string;
   suggestions: string[];
+  patterns: PatternMatch[];
 };
 
 async function richiediRange(prefissoHash: string): Promise<string> {
@@ -123,7 +144,7 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
+    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: []};
   }  
   
   const base = calcolaScoreNIST(pwd);
@@ -152,5 +173,5 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
   const suggestions = getSuggestions(pwd, hasPattern, isCompromised);
 
-  return {baseScore: base, score, label, color, suggestions};  
+  return {baseScore: base, score, label, color, suggestions, patterns: [] };  
 } 

@@ -7,6 +7,7 @@ const INITIAL_STRENGTH: Strength = {
   label: "Inizia a digitare…",
   color: "#2d7dff",
   suggestions: [],
+  patterns:    [],
 };
 
 export function usePasswordController() {
