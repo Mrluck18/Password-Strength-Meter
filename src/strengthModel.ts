@@ -30,6 +30,62 @@ export type Strength = {
   patterns: PatternMatch[];
 };
 
+const KEYBOARD_SEQUENCES: string[] = [
+  // Orizzontali — riga superiore
+  "qwertyuiop",
+  // Orizzontali — riga centrale
+  "asdfghjkl",
+  // Orizzontali — riga inferiore
+  "zxcvbnm",
+  // Orizzontali — riga numerica
+  "1234567890",
+  // Verticali (colonne QWERTY)
+  "qaz", "wsx", "edc", "rfv", "tgb", "yhn", "ujm",
+  // Diagonali
+  "qsc", "wde", "erf", "rtg", "yuj", "uik",
+];
+
+const MIN_WALK_LENGTH = 3;
+
+// Restituisce un PatternMatch per ogni corrispondenza trovata.
+export function detectKeyboardWalks(pwd: string): PatternMatch[] {
+  const lower = pwd.toLowerCase();
+  const matches: PatternMatch[] = [];
+
+  for (const seq of KEYBOARD_SEQUENCES) {
+    const variants = [seq, seq.split("").reverse().join("")];
+
+    for (const variant of variants) {
+      for (let len = variant.length; len >= MIN_WALK_LENGTH; len--) {
+        for (let i = 0; i <= variant.length - len; i++) {
+          const sub = variant.slice(i, i + len);
+          let pos = lower.indexOf(sub);
+
+          while (pos !== -1) {
+            const alreadyCovered = matches.some(
+              (m) => m.start <= pos && m.end >= pos + len
+            );
+
+            if (!alreadyCovered) {
+              matches.push({
+                type:    PatternType.KEYBOARD_WALK,
+                segment: pwd.slice(pos, pos + len),
+                start:   pos,
+                end:     pos + len,
+                penalty: len >= 6 ? 25 : len >= 4 ? 18 : 12,
+              });
+            }
+
+            pos = lower.indexOf(sub, pos + 1);
+          }
+        }
+      }
+    }
+  }
+
+  return matches;
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
