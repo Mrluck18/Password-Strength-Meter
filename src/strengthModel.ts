@@ -86,6 +86,52 @@ export function detectKeyboardWalks(pwd: string): PatternMatch[] {
   return matches;
 }
 
+const DATE_PATTERNS: { regex: RegExp; label: PatternType; penalty: number }[] = [
+  // Date complete 8 cifre — penalità massima
+  { regex: /(?<!\d)(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}(?!\d)/g, label: PatternType.DATE, penalty: 22 }, // ddmmyyyy
+  { regex: /(?<!\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(19|20)\d{2}(?!\d)/g, label: PatternType.DATE, penalty: 22 }, // mmddyyyy
+  { regex: /(?<!\d)(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)/g, label: PatternType.DATE, penalty: 22 }, // yyyymmdd
+
+  // Date corte 6 cifre
+  { regex: /(?<!\d)(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])\d{2}(?!\d)/g, label: PatternType.DATE, penalty: 18 }, // ddmmyy
+
+  // Anni 4 cifre — range 1900–2029 (alta frequenza nei breach)
+  { regex: /(?<!\d)(19\d{2}|200\d|201\d|202[0-9])(?!\d)/g, label: PatternType.YEAR, penalty: 15 },
+];
+
+// Restituisce un PatternMatch per ogni corrispondenza trovata
+export function detectDatesAndYears(pwd: string): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+
+  for (const { regex, label, penalty } of DATE_PATTERNS) {
+    // Resetta lastIndex per ogni utilizzo (regex con flag /g sono stateful)
+    regex.lastIndex = 0;
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(pwd)) !== null) {
+      const start = match.index;
+      const end   = start + match[0].length;
+
+      // Priorità al match più specifico: salta se già coperto
+      const alreadyCovered = matches.some(
+        (m) => m.start <= start && m.end >= end
+      );
+
+      if (!alreadyCovered) {
+        matches.push({
+          type:    label,
+          segment: match[0],
+          start,
+          end,
+          penalty,
+        });
+      }
+    }
+  }
+
+  return matches;
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
