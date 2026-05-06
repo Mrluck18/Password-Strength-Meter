@@ -132,6 +132,137 @@ export function detectDatesAndYears(pwd: string): PatternMatch[] {
   return matches;
 }
 
+
+const LEET_MAP: Record<string, string> = {
+
+  // ── Multi-carattere (processate prima per evitare sostituzioni parziali) ──
+  "ph": "f",    // ph → f  (es. "ph34r" → "fear", "phd" → "fd")
+  "|-|": "h",   // |-| → h  (Advanced Leet)
+  "|_|": "u",   // |_| → u
+  "|3":  "b",   // |3 → b
+  "I3":  "b",   // I3 → b
+  "13":  "b",   // 13 → b
+  "|=":  "f",   // |= → f
+  "|<":  "k",   // |< → k
+  "/>":  "r",   // I2 / /2 → r (semplificato)
+  "I2":  "r",
+  "/\\":  "a",   // /\ → a
+  "\\/":  "v",  // \/ → v
+
+  "@": "a",   // A → @ (Advanced)
+  "4": "a",   // A → 4 (Basic — il più comune)
+  "3": "e",   // E → 3 (Basic)
+  "1": "i",   // I → 1 (Basic)
+  "!": "i",   // I → ! (Intermediate)
+  "0": "o",   // O → 0 (Basic — zero)
+  "]": "i",   // I → ] (raro ma presente in corpus)
+
+  "8": "b",   // B → 8
+  "[": "c",   // C → [
+  "<": "c",   // C → <
+  ")": "d",   // D → )
+  "6": "g",   // G → 6
+  "9": "g",   // G → 9
+  "#": "h",   // H → #
+  "|": "l",   // L → |
+  "£": "l",   // L → £
+  "5": "s",   // S → 5 (Intermediate)
+  "$": "s",   // S → $ (Intermediate — molto frequente)
+  "7": "t",   // T → 7
+  "+": "t",   // T → +
+  "2": "z",   // Z → 2 (inverso, usato in suffissi "-zorz")
+};
+
+// Caratteri che richiedono contesto alfabetico per essere sostituiti
+const CONTEXT_SENSITIVE = new Set(["@", "!", "]", "|", "+"]);
+
+// Restituisce true se il carattere in posizione index è circondato
+// da lettere su entrambi i lati — cioè è "embedded" in un token alfabetico
+function isEmbedded(str: string, index: number): boolean {
+  const prev = index > 0 ? str[index - 1] : "";
+  const next = index < str.length - 1 ? str[index + 1] : "";
+  const isLetter = (c: string) => /[a-z]/i.test(c);
+  return isLetter(prev) && isLetter(next);
+}
+
+// Normalizza la password sostituendo i caratteri leet con i corrispondenti
+export function normalizeLeet(pwd: string): {
+  normalized: string;
+  offsetMap: number[];
+} {
+  const lower = pwd.toLowerCase();
+  let normalized = "";
+  const offsetMap: number[] = [];
+  let i = 0;
+
+  while (i < lower.length) {
+    // Prova prima le sostituzioni multi-carattere
+    let matched = false;
+    for (const [leet, base] of Object.entries(LEET_MAP)) {
+      if (leet.length > 1 && lower.startsWith(leet, i)) {
+        // "ph" → "f": un solo carattere normalizzato, ma due originali
+        // offsetMap punta all'inizio del gruppo originale
+        normalized += base;
+        offsetMap.push(i);
+        i += leet.length;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      const char = lower[i];
+      const replacement = LEET_MAP[char];
+      if (replacement && CONTEXT_SENSITIVE.has(char)) {
+          normalized += isEmbedded(lower, i) ? replacement : char;
+      } else {
+        normalized += replacement ?? char;
+      }
+      
+      
+      offsetMap.push(i);
+      i++;
+    }
+  }
+
+  return { normalized, offsetMap };
+}
+
+// Rileva pattern leet speak nella password
+export function detectLeetSpeak(pwd: string): PatternMatch[] {
+  const { normalized, offsetMap } = normalizeLeet(pwd);
+
+  // Se la stringa normalizzata è identica all'originale lowercase,
+  // non c'è nessun carattere leet → nessun match
+  if (normalized === pwd.toLowerCase()) return [];
+
+  // Rilancia i detector sulla stringa normalizzata
+  const rawMatches: PatternMatch[] = [
+    ...detectKeyboardWalks(normalized),
+    ...detectDatesAndYears(normalized),
+  ];
+
+  // Filtra solo i match che NON si trovano anche nella password originale
+  const originalMatches = new Set(
+    [...detectKeyboardWalks(pwd.toLowerCase()),
+     ...detectDatesAndYears(pwd.toLowerCase())]
+      .map((m) => `${m.start}-${m.end}-${m.type}`)
+  );
+
+  const leetOnlyMatches = rawMatches.filter(
+    (m) => !originalMatches.has(`${m.start}-${m.end}-${m.type}`)
+  );
+
+  // Riancoura le posizioni alla password originale tramite offsetMap
+  return leetOnlyMatches.map((m) => ({
+    type: PatternType.LEET,
+    segment: pwd.slice(offsetMap[m.start], offsetMap[m.end - 1] + 1),
+    start: offsetMap[m.start],
+    end: offsetMap[m.end - 1] + 1,
+    penalty: m.penalty,   // eredita la penalità del pattern sottostante
+  }));
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
