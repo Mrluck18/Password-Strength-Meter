@@ -263,6 +263,39 @@ export function detectLeetSpeak(pwd: string): PatternMatch[] {
   }));
 }
 
+export function detectRepeatedChars(pwd: string): PatternMatch[] {
+  const lower = pwd.toLowerCase();
+  const matches: PatternMatch[] = [];
+  let i = 0;
+
+  while (i < lower.length) {
+    let j = i + 1;
+
+    // Estendi il run finché il carattere è identico
+    while (j < lower.length && lower[j] === lower[i]) {
+      j++;
+    }
+
+    const runLength = j - i;
+
+    // Soglia minima: run di almeno 3 caratteri identici
+    if (runLength >= 3) {
+      matches.push({
+        type:    PatternType.REPEATED,
+        segment: pwd.slice(i, j),   // preserva il case originale
+        start:   i,
+        end:     j,
+        penalty: runLength >= 5 ? 18 : runLength >= 4 ? 14 : 10,
+      });
+    }
+
+    // Salta l'intero run — non produrre match sovrapposti
+    i = j;
+  }
+
+  return matches;
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
