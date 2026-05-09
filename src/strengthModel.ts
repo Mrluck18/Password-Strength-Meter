@@ -1,5 +1,5 @@
 import { sha1 } from "./cryptoUtils";
-import { isInBlacklist } from "./blacklist";
+import { isInBlacklist, getBlacklistSet } from "./blacklist";
 
 export enum PatternType {
   KEYBOARD_WALK = "KEYBOARD_WALK",
@@ -229,7 +229,7 @@ export function normalizeLeet(pwd: string): {
 }
 
 // Rileva pattern leet speak nella password
-export function detectLeetSpeak(pwd: string): PatternMatch[] {
+export async function detectLeetSpeak(pwd: string): Promise<PatternMatch[]> {
   const { normalized, offsetMap } = normalizeLeet(pwd);
 
   // Se la stringa normalizzata è identica all'originale lowercase,
@@ -240,13 +240,15 @@ export function detectLeetSpeak(pwd: string): PatternMatch[] {
   const rawMatches: PatternMatch[] = [
     ...detectKeyboardWalks(normalized),
     ...detectDatesAndYears(normalized),
+    ...(await detectDictionaryWords(normalized)),
   ];
 
   // Filtra solo i match che NON si trovano anche nella password originale
   const originalMatches = new Set(
     [...detectKeyboardWalks(pwd.toLowerCase()),
-     ...detectDatesAndYears(pwd.toLowerCase())]
-      .map((m) => `${m.start}-${m.end}-${m.type}`)
+     ...detectDatesAndYears(pwd.toLowerCase()),
+     ...(await detectDictionaryWords(pwd.toLowerCase())),
+     ].map((m) => `${m.start}-${m.end}-${m.type}`)
   );
 
   const leetOnlyMatches = rawMatches.filter(
@@ -291,6 +293,53 @@ export function detectRepeatedChars(pwd: string): PatternMatch[] {
 
     // Salta l'intero run — non produrre match sovrapposti
     i = j;
+  }
+
+  return matches;
+}
+
+// Lunghezza minima e massima delle sottostringhe da controllare.
+// Min 4: sotto questa soglia il falso positivo esplode ("the", "and"…)
+// Max 20: parole sopra questa lunghezza non compaiono nei dizionari di breach
+const DICT_MIN_LEN = 4;
+const DICT_MAX_LEN = 20;
+
+// Rileva sottostringhe della password presenti nella blacklist locale
+export async function detectDictionaryWords(pwd: string): Promise<PatternMatch[]> {
+  const set = await getBlacklistSet();
+  const lower = pwd.toLowerCase();
+  const matches: PatternMatch[] = [];
+
+  for (let start = 0; start < lower.length; start++) {
+    for (
+      let end = start + DICT_MIN_LEN;
+      end <= Math.min(lower.length, start + DICT_MAX_LEN);
+      end++
+    ) {
+      // Salta se già coperto da un match più lungo
+      const alreadyCovered = matches.some(
+        (m) => m.start <= start && m.end >= end
+      );
+      if (alreadyCovered) continue;
+
+      const sub = lower.slice(start, end);
+      const hash = await sha1(sub);
+
+      if (set.has(hash)) {
+        matches.push({
+          type:    PatternType.DICTIONARY,
+          segment: pwd.slice(start, end),   // case originale
+          start,
+          end,
+          // Penalità proporzionale alla lunghezza della parola trovata
+          penalty: end - start >= 8 ? 30 : end - start >= 6 ? 25 : 20,
+        });
+
+        // Trovato il match più lungo da questa posizione:
+        // avanza start al termine del match per evitare overlap
+        break;
+      }
+    }
   }
 
   return matches;

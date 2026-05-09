@@ -50,3 +50,9 @@ export async function isInBlacklist(pwd: string): Promise<boolean> {
   const hash = await sha1(pwd.toLowerCase());
   return blacklistSet!.has(hash);
 }
+
+// Usata da detectDictionaryWords() per il lookup per sottostringa
+export async function getBlacklistSet(): Promise<Set<string>> {
+  await loadBlacklist();
+  return blacklistSet!;
+}
