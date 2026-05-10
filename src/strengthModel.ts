@@ -345,6 +345,88 @@ export async function detectDictionaryWords(pwd: string): Promise<PatternMatch[]
   return matches;
 }
 
+const STRUCTURAL_PATTERNS: {
+  regex: RegExp;
+  label: PatternType;
+  penalty: number;
+}[] = [
+  // Sequenze numeriche crescenti/decrescenti (min 4 cifre)
+  { regex: /(?<!\d)(0123|1234|2345|3456|4567|5678|6789|7890|0987|9876|8765|7654|6543|5432|4321|3210)(?!\d)/g,
+    label: PatternType.SEQUENCE_NUM, penalty: 15 },
+
+  // Sequenze alfabetiche crescenti/decrescenti (min 4 lettere)
+  { regex: /(?<![a-z])(abcd|bcde|cdef|defg|efgh|fghi|ghij|hijk|ijkl|jklm|klmn|lmno|mnop|nopq|opqr|pqrs|qrst|rstu|stuv|tuvw|uvwx|vwxy|wxyz|zyxw|yxwv|xwvu|wvut|vuts|utsr|tsrq|srqp|rqpo|qpon|ponm|onml|nmlk|mlkj|lkji|kjih|jihg|ihgf|hgfe|gfed|fedc|edcb|dcba)(?![a-z])/g,
+    label: PatternType.SEQUENCE_ALPHA, penalty: 15 },
+
+  // Padding simbolo in coda
+  { regex: /[!@#$%^&*\-_+=?]{1,4}$/g,
+    label: PatternType.STRUCTURAL, penalty: 12 },
+];
+
+// Regex separata: parola seguita da anno
+// Non messa nell'array sopra perché richiede un check sulla lunghezza del match
+const WORD_YEAR_REGEX =
+  /(?<![a-z])([a-z]{3,})((19|20)\d{2})(?![a-z\d])/gi;
+
+/**
+ * Rileva pattern strutturali ricorrenti nelle password:
+ * sequenze numeriche/alfabetiche, padding simbolo, parola+anno.
+ */
+export function detectStructuralPattern(pwd: string): PatternMatch[] {
+  const lower = pwd.toLowerCase();
+  const matches: PatternMatch[] = [];
+
+  // Pattern da array
+  for (const { regex, label, penalty } of STRUCTURAL_PATTERNS) {
+    regex.lastIndex = 0;
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(lower)) !== null) {
+      const start = match.index;
+      const end   = start + match[0].length;
+
+      const alreadyCovered = matches.some(
+        (m) => m.start <= start && m.end >= end
+      );
+
+      if (!alreadyCovered) {
+        matches.push({
+          type:    label,
+          segment: pwd.slice(start, end),
+          start,
+          end,
+          penalty,
+        });
+      }
+    }
+  }
+
+  // Parola + anno
+  WORD_YEAR_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = WORD_YEAR_REGEX.exec(lower)) !== null) {
+    const start = match.index;
+    const end   = start + match[0].length;
+
+    const alreadyCovered = matches.some(
+      (m) => m.start <= start && m.end >= end
+    );
+
+    if (!alreadyCovered) {
+      matches.push({
+        type:    PatternType.STRUCTURAL,
+        segment: pwd.slice(start, end),
+        start,
+        end,
+        penalty: 20,   // parola+anno è uno dei pattern più frequenti nei breach
+      });
+    }
+  }
+
+  return matches;
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
