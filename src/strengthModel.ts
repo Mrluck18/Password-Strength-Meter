@@ -427,6 +427,57 @@ export function detectStructuralPattern(pwd: string): PatternMatch[] {
   return matches;
 }
 
+// Rimuove i PatternMatch sovrapposti dalla lista flat
+function removeOverlaps(matches: PatternMatch[]): PatternMatch[] {
+  // Ordina per penalità decrescente — in caso di parità, il più lungo vince
+  const sorted = [...matches].sort((a, b) =>
+    b.penalty !== a.penalty
+      ? b.penalty - a.penalty
+      : (b.end - b.start) - (a.end - a.start)
+  );
+
+  const accepted: PatternMatch[] = [];
+
+  for (const candidate of sorted) {
+    const overlaps = accepted.some(
+      (m) => candidate.start < m.end && m.start < candidate.end
+    );
+
+    if (!overlaps) {
+      accepted.push(candidate);
+    }
+  }
+
+  // Riordina per posizione crescente — utile per la View
+  return accepted.sort((a, b) => a.start - b.start);
+}
+
+export async function segmentPassword(pwd: string): Promise<PatternMatch[]> {
+  if (!pwd) return [];
+
+  // Chiama tutti i detector — async prima, sync dopo
+  const [dictMatches, leetMatches] = await Promise.all([
+    detectDictionaryWords(pwd),
+    detectLeetSpeak(pwd),
+  ]);
+
+  const syncMatches: PatternMatch[] = [
+    ...detectKeyboardWalks(pwd),
+    ...detectDatesAndYears(pwd),
+    ...detectStructuralPattern(pwd),
+    ...detectRepeatedChars(pwd),
+  ];
+
+  // Lista flat di tutti i match
+  const allMatches: PatternMatch[] = [
+    ...dictMatches,
+    ...leetMatches,
+    ...syncMatches,
+  ];
+
+  return removeOverlaps(allMatches);
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
