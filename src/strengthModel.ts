@@ -478,6 +478,30 @@ export async function segmentPassword(pwd: string): Promise<PatternMatch[]> {
   return removeOverlaps(allMatches);
 }
 
+// Fattori di smorzamento per match multipli
+const DIMINISHING_FACTORS = [1.0, 0.7, 0.5, 0.4, 0.3];
+
+// Calcola la penalità totale da sottrarre al baseScore NIST
+export function calcolaPenalitaPattern(matches: PatternMatch[]): number {
+  if (matches.length === 0) return 0;
+
+  const MAX_SINGLE_PENALTY = 30;
+  const MAX_TOTAL_PENALTY  = 60;
+
+  // Ordina per penalità decrescente — applica lo smorzamento ai match minori
+  const sorted = [...matches].sort((a, b) => b.penalty - a.penalty);
+
+  let total = 0;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const raw    = Math.min(sorted[i].penalty, MAX_SINGLE_PENALTY);
+    const factor = DIMINISHING_FACTORS[i] ?? 0.3;  // oltre il 5° match: 0.3 fisso
+    total += raw * factor;
+  }
+
+  return Math.min(Math.round(total), MAX_TOTAL_PENALTY);
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
