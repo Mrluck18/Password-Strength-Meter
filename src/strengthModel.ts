@@ -547,32 +547,6 @@ function calcolaScoreNIST(pwd: string): number {
   return base;             // max 80
 }
 
-
-function controlloPattern(pwd: string): boolean {
-  const lower = pwd.toLowerCase();
-
-  // 1. Caratteri ripetuti (es. "aaa")
-  if (/(.)\1\1/.test(lower)) return true;
-
-  // 2. Sequenze numeriche (es. "1234", "4321")
-  if (/0123|1234|2345|3456|4567|5678|6789|7890/.test(lower)) return true;
-  if (/0987|9876|8765|7654|6543|5432|4321|3210/.test(lower)) return true;
-
-  // 3. Sequenze alfabetiche (es. "abcd", "dcba")
-  if (/abcd|bcde|cdef|defg|efgh|fghi|ghij|hijk|ijkl|jklm|klmn|lmno|mnop|nopq|opqr|pqrs|qrst|rstu|stuv|tuvw|uvwx|vwxy|wxyz/.test(lower)) return true;
-
-  // 4. Tastiera QWERTY (es. "qwer", "asdf")
-  if (/qwer|wert|erty|rtyu|tyui|yuio|uiop/.test(lower)) return true;
-  if (/asdf|sdfg|dfgh|fghj|ghjk|hjkl/.test(lower)) return true;
-  if (/zxcv|xcvb|cvbn|vbnm/.test(lower)) return true;
-
-  // 5. Anni comuni (19xx o 20xx)
-  if (/(19|20)\d{2}/.test(lower)) return true;
-
-  return false;
-}
-
-
 function computeLabelAndColor(
   score: number,
   L: number,
@@ -592,21 +566,47 @@ function computeLabelAndColor(
   return                             { label: "Debole", color: "#ff3b3b" };
 }
 
-function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
-  const suggestions: string[] = [];
+function getSuggestions(
+  pwd:      string,
+  matches:  PatternMatch[],
+  isCompromised:  boolean
+): string[] {
+  if (isCompromised) return [];
 
-  if (isPwned) {
-    return []; 
-  }
+  const suggestions: string[] = [];
 
   if (pwd.length < 8) {
     suggestions.push("Usa almeno 8 caratteri.");
   }
-  
-  if (hasPattern) {
-    suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
+
+  // Genera un suggerimento specifico per ogni tipo di pattern trovato
+  const types = new Set(matches.map((m) => m.type));
+
+  if (types.has(PatternType.DICTIONARY)) {
+    suggestions.push("Evita parole comuni come base della password.");
   }
-  
+  if (types.has(PatternType.LEET)) {
+    suggestions.push("Le sostituzioni leet (es. p4ssw0rd) sono note agli attaccanti.");
+  }
+  if (types.has(PatternType.KEYBOARD_WALK)) {
+    suggestions.push("Evita sequenze da tastiera (es. 'qwerty', 'asdf').");
+  }
+  if (types.has(PatternType.DATE) || types.has(PatternType.YEAR)) {
+    suggestions.push("Evita date di nascita o anni come parte della password.");
+  }
+  if (types.has(PatternType.REPEATED)) {
+    suggestions.push("Evita caratteri ripetuti (es. 'aaa', '111').");
+  }
+  if (
+    types.has(PatternType.SEQUENCE_ALPHA) ||
+    types.has(PatternType.SEQUENCE_NUM)
+  ) {
+    suggestions.push("Evita sequenze consecutive (es. '1234', 'abcd').");
+  }
+  if (types.has(PatternType.STRUCTURAL)) {
+    suggestions.push("Aggiungere un anno o un simbolo in coda non aumenta significativamente la sicurezza.");
+  }
+
   if (suggestions.length === 0 && pwd.length < 12) {
     suggestions.push("Allunga la password con più parole o caratteri casuali.");
   }
@@ -616,34 +616,36 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: []};
-  }  
-  
-  const base = calcolaScoreNIST(pwd);
-  const hasPattern = controlloPattern(pwd);
-  
-  let scoreCalc = base;  
-
-  if (!hasPattern) scoreCalc += 6;
-
-
-  // Blacklist-primary → HIBP solo come fallback online
-  const isBlacklisted = await checkBlacklistLocale(pwd);
-
-  let isPwned = false;
-  if (!isBlacklisted) {
-    // Chiama HIBP solo se la blacklist locale non ha trovato match:
-    // evita una chiamata di rete inutile per le password più comuni.
-    isPwned = await checkPwned(pwd);
+    return {
+      baseScore:   0,
+      score:       0,
+      label:       "Inizia a digitare…",
+      color:       "#2d7dff",
+      suggestions: [],
+      patterns:    [],
+    };
   }
 
+  const base = calcolaScoreNIST(pwd);
+
+  const matches = await segmentPassword(pwd);
+
+  const penalty = calcolaPenalitaPattern(matches);
+
+  const isBlacklisted = await checkBlacklistLocale(pwd);
+  let isPwned = false;
+  if (!isBlacklisted) {
+    isPwned = await checkPwned(pwd);
+  }
   const isCompromised = isBlacklisted || isPwned;
 
-  if (!isCompromised) scoreCalc += 6;
+  const scoreCalc = isCompromised ? 0 : Math.min(100, Math.max(0, base - penalty));
 
-  const score = isCompromised ? 0 : Math.min(100, Math.round(scoreCalc));
+  const score = Math.round(scoreCalc);
+
   const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
-  const suggestions = getSuggestions(pwd, hasPattern, isCompromised);
 
-  return {baseScore: base, score, label, color, suggestions, patterns: [] };  
-} 
+  const suggestions = getSuggestions(pwd, matches, isCompromised);
+
+  return { baseScore: base, score, label, color, suggestions, patterns: matches };
+}
