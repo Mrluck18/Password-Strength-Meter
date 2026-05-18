@@ -502,6 +502,40 @@ export function calcolaPenalitaPattern(matches: PatternMatch[]): number {
   return Math.min(Math.round(total), MAX_TOTAL_PENALTY);
 }
 
+const PATTERN_MESSAGES: Record<PatternType, (seg: string) => string> = {
+  [PatternType.KEYBOARD_WALK]: (seg) =>
+    `I tasti vicini sulla tastiera in «${seg}» sono troppo facili da indovinare.`,
+  
+  [PatternType.DATE]: (seg) =>
+    `Evita date come «${seg}». Sono le prime a essere scoperte dai programmi automatici.`,
+  
+  [PatternType.YEAR]: (seg) =>
+    `L'anno «${seg}» è troppo prevedibile. Evita gli anni di nascita o le date importanti.`,
+  
+  [PatternType.LEET]: (seg) =>
+    `Sostituire le lettere con numeri o simboli in «${seg}» è un trucco troppo noto.`,
+  
+  [PatternType.REPEATED]: (seg) =>
+    `Evita di ripetere lo stesso carattere come in «${seg}», è una combinazione facilissima da indovinare.`,
+  
+  [PatternType.SEQUENCE_ALPHA]: (seg) =>
+    `Le lettere in ordine alfabetico come «${seg}» non sono sicure.`,
+  
+  [PatternType.SEQUENCE_NUM]: (seg) =>
+    `I numeri in fila come «${seg}» sono troppo comuni.`,
+  
+  [PatternType.DICTIONARY]: (seg) =>
+    `«${seg}» è una parola di uso comune.`,
+  
+  [PatternType.STRUCTURAL]: (seg) =>
+    `La struttura di «${seg}» (es. parola + numero finale) è troppo comune.`,
+};
+
+export function buildPatternMessage(match: PatternMatch): string {
+  const template = PATTERN_MESSAGES[match.type];
+  return template(match.segment);
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
