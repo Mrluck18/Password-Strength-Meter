@@ -601,9 +601,9 @@ function computeLabelAndColor(
 }
 
 function getSuggestions(
-  pwd:      string,
-  matches:  PatternMatch[],
-  isCompromised:  boolean
+  pwd:           string,
+  matches:       PatternMatch[],
+  isCompromised: boolean
 ): string[] {
   if (isCompromised) return [];
 
@@ -611,34 +611,12 @@ function getSuggestions(
 
   if (pwd.length < 8) {
     suggestions.push("Usa almeno 8 caratteri.");
+    return suggestions;
   }
 
-  // Genera un suggerimento specifico per ogni tipo di pattern trovato
-  const types = new Set(matches.map((m) => m.type));
-
-  if (types.has(PatternType.DICTIONARY)) {
-    suggestions.push("Evita parole comuni come base della password.");
-  }
-  if (types.has(PatternType.LEET)) {
-    suggestions.push("Le sostituzioni leet (es. p4ssw0rd) sono note agli attaccanti.");
-  }
-  if (types.has(PatternType.KEYBOARD_WALK)) {
-    suggestions.push("Evita sequenze da tastiera (es. 'qwerty', 'asdf').");
-  }
-  if (types.has(PatternType.DATE) || types.has(PatternType.YEAR)) {
-    suggestions.push("Evita date di nascita o anni come parte della password.");
-  }
-  if (types.has(PatternType.REPEATED)) {
-    suggestions.push("Evita caratteri ripetuti (es. 'aaa', '111').");
-  }
-  if (
-    types.has(PatternType.SEQUENCE_ALPHA) ||
-    types.has(PatternType.SEQUENCE_NUM)
-  ) {
-    suggestions.push("Evita sequenze consecutive (es. '1234', 'abcd').");
-  }
-  if (types.has(PatternType.STRUCTURAL)) {
-    suggestions.push("Aggiungere un anno o un simbolo in coda non aumenta significativamente la sicurezza.");
+  // Genera un messaggio esplicabile per ogni pattern rilevato
+  for (const match of matches) {
+    suggestions.push(buildPatternMessage(match));
   }
 
   if (suggestions.length === 0 && pwd.length < 12) {
