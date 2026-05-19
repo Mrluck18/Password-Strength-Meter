@@ -614,8 +614,11 @@ function getSuggestions(
     return suggestions;
   }
 
+  // Ordina i match per penalità decrescente, il pattern più grave appare per primo
+  const sorted = [...matches].sort((a, b) => b.penalty - a.penalty);
+
   // Genera un messaggio esplicabile per ogni pattern rilevato
-  for (const match of matches) {
+  for (const match of sorted.slice(0,2)) {
     suggestions.push(buildPatternMessage(match));
   }
 
