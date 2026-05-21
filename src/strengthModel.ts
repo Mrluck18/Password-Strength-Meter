@@ -21,6 +21,15 @@ export interface PatternMatch {
   penalty: number;      // penalità in punti (valore positivo, verrà sottratto)
 }
 
+export interface ModificationSuggestion {
+  original: string;
+  modified: string;
+  weakSegment: string;
+  weakStart: number;
+  weakEnd: number;
+  explanation: string;
+}
+
 export type Strength = {
   baseScore: number;
   score: number;
