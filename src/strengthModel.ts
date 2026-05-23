@@ -37,6 +37,7 @@ export type Strength = {
   color: string;
   suggestions: string[];
   patterns: PatternMatch[];
+  modification?: ModificationSuggestion;
 };
 
 const KEYBOARD_SEQUENCES: string[] = [
