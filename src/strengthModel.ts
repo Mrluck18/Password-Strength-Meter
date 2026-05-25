@@ -546,6 +546,63 @@ export function buildPatternMessage(match: PatternMatch): string {
   return template(match.segment);
 }
 
+// Charset per il token sostitutivo:
+// consonanti non ambigue + cifre non sequenziali.
+// Escluse: vocali (troppo leggibili → parole), l/1/0/O (ambigue visivamente)
+const TOKEN_CONSONANTS = "bcdfghjkmnpqrstvwxyz";
+const TOKEN_DIGITS     = "2357";   // esclusi 0,1,4,6,8,9 — non formano sequenze comuni
+const TOKEN_CHARSET    = TOKEN_CONSONANTS + TOKEN_DIGITS;
+
+
+function generaTokenCasuale(len: number): string {
+  const array = new Uint8Array(len);
+  Math.random(array);
+  return Array.from(array)
+    .map((byte) => TOKEN_CHARSET[byte % TOKEN_CHARSET.length])
+    .join("");
+}
+
+// Descrizione testuale del tipo di pattern — usata in explanation
+const PATTERN_LABEL: Record<PatternType, string> = {
+  [PatternType.KEYBOARD_WALK]:   "sequenza di tasti adiacenti",
+  [PatternType.DATE]:            "data riconoscibile",
+  [PatternType.YEAR]:            "anno ad alta frequenza",
+  [PatternType.LEET]:            "variante leet speak",
+  [PatternType.REPEATED]:        "caratteri ripetuti",
+  [PatternType.SEQUENCE_ALPHA]:  "sequenza alfabetica",
+  [PatternType.SEQUENCE_NUM]:    "sequenza numerica",
+  [PatternType.DICTIONARY]:      "parola di dizionario",
+  [PatternType.STRUCTURAL]:      "struttura prevedibile",
+};
+
+export function substituteWeakSegment(
+  pwd:     string,
+  matches: PatternMatch[]
+): ModificationSuggestion | null {
+  if (matches.length === 0) return null;
+
+  // Seleziona il PatternMatch con penalità massima (in caso di parità: il più lungo)
+  const worst = [...matches].sort((a, b) =>
+    b.penalty !== a.penalty
+      ? b.penalty - a.penalty
+      : (b.end - b.start) - (a.end - a.start)
+  )[0];
+
+  const segLen  = worst.end - worst.start;
+  const token   = generaTokenCasuale(segLen);
+  const modified =
+    pwd.slice(0, worst.start) + token + pwd.slice(worst.end);
+
+  return {
+    original: pwd,
+    modified,
+    weakSegment: worst.segment,
+    weakStart: worst.start,
+    weakEnd: worst.end,
+    explanation: `${PATTERN_LABEL[worst.type]} «${worst.segment}» sostituita con token casuale`,
+  };
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
