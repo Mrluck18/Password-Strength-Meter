@@ -603,6 +603,52 @@ export function substituteWeakSegment(
   };
 }
 
+// Posizioni interne preferite per il padding (non-finale, non-iniziale)
+// L'obiettivo è evitare i pattern di padding più frequenti nei breach:
+const INTERNAL_INSERT_FRACTIONS = [0.3, 0.5, 0.7];
+
+export function padWithNonPattern(
+  suggestion: ModificationSuggestion,
+  targetLength: number = 15
+): ModificationSuggestion {
+  let { modified } = suggestion;
+
+  if (modified.length >= targetLength) return suggestion;
+
+  const needed = targetLength - modified.length;
+
+  const insertions: { pos: number; char: string }[] = [];
+
+  for (let i = 0; i < needed; i++) {
+    const fraction = INTERNAL_INSERT_FRACTIONS[i % INTERNAL_INSERT_FRACTIONS.length];
+    // La posizione è ricalcolata sulla lunghezza attuale (che cresce ad ogni inserimento)
+    const baseLen = modified.length + insertions.length;
+    // Clamp: mai in posizione 0 o finale
+    const pos = Math.max(1, Math.min(baseLen - 1, Math.round(baseLen * fraction)));
+    const char = generaTokenCasuale(1);
+    insertions.push({ pos, char });
+  }
+
+  // Applica gli inserimenti in ordine di posizione crescente,
+  // aggiornando gli offset man mano che la stringa cresce
+  insertions.sort((a, b) => a.pos - b.pos);
+  let offset = 0;
+  for (const ins of insertions) {
+    const realPos = ins.pos + offset;
+    modified =
+      modified.slice(0, realPos) + ins.char + modified.slice(realPos);
+    offset++;
+  }
+
+  return {
+    ...suggestion,
+    modified,
+    explanation:
+      suggestion.explanation +
+      ` · padding interno (+${needed} car.) per raggiungere L≥${targetLength}`,
+  };
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
