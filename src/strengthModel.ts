@@ -649,6 +649,24 @@ export function padWithNonPattern(
   };
 }
 
+// Orchestratore
+export function suggerisciModifica(
+  pwd:     string,
+  score:   number,
+  matches: PatternMatch[]
+): ModificationSuggestion | null {
+  // Già forte: nessun suggerimento di modifica necessario
+  if (score >= 67 && pwd.length >= 15) return null;
+
+  const suggestion = substituteWeakSegment(pwd, matches);
+  if (!suggestion) return null;
+
+  // Applica padding interno se la password modificata è ancora corta
+  return suggestion.modified.length >= 15
+    ? suggestion
+    : padWithNonPattern(suggestion, 15);
+}
+
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
   if (!response.ok) throw new Error("Network error");
