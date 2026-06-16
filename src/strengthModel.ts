@@ -792,6 +792,9 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
 
   const suggestions = getSuggestions(pwd, matches, isCompromised);
+  const modification = isCompromised
+    ? undefined
+    : suggerisciModifica(pwd, score, matches) ?? undefined;
 
-  return { baseScore: base, score, label, color, suggestions, patterns: matches };
+  return { baseScore: base, score, label, color, suggestions, patterns: matches, modification };
 }
