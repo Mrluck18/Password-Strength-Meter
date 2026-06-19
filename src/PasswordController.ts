@@ -18,7 +18,8 @@ export function usePasswordController() {
   // Stato per il risultato
   const [strength, updateUI] = useState<Strength>(INITIAL_STRENGTH);
   // Stato per il caricamento (check API in corso)
-  const [isChecking, setIsChecking] = useState(false);
+  const [isCheckingLocal, setIsCheckingLocal]   = useState(false);
+  const [isCheckingOnline, setIsCheckingOnline] = useState(false);
 
   useEffect(() => {
     // Debounce: non chiamare API ad ogni tasto, aspetta che l'utente si fermi un attimo
@@ -29,17 +30,17 @@ export function usePasswordController() {
         return;
       }
 
-      // Invia richiesta di analisi al Model
-      setIsChecking(true);
+      setIsCheckingLocal(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setIsCheckingLocal(false);
+      setIsCheckingOnline(true);
       try {
         const result = await calcoloRobustezza(password);
-        // Aggiorna lo stato con il punteggio ricevuto dal Model
-        updateUI(result); // Inizia loading
+        updateUI(result);
       } catch (error) {
         console.error(error);
-        // In caso di errore, mantiene lo stato precedente
       } finally {
-        setIsChecking(false); // Fine loading
+        setIsCheckingOnline(false);
       }
     }, 500);  // 500 ms di ritardo
 
@@ -74,7 +75,8 @@ export function usePasswordController() {
     password,
     showPassword,
     strength,
-    isChecking,
+    isCheckingLocal,
+    isCheckingOnline,
     validationError,
     // Azioni disponibili
     richiestaAnalisiPassword: handlePasswordChange,
