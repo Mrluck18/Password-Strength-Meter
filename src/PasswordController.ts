@@ -81,6 +81,8 @@ export function usePasswordController() {
     // Azioni disponibili
     richiestaAnalisiPassword: handlePasswordChange,
     onToggleVisibility: handleToggleVisibility,
+    patterns: strength.patterns,
+    modification: strength.modification,
   };
 }
 
