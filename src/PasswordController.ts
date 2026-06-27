@@ -8,6 +8,7 @@ const INITIAL_STRENGTH: Strength = {
   color: "#2d7dff",
   suggestions: [],
   patterns:    [],
+  modification: undefined,
 };
 
 export function usePasswordController() {
