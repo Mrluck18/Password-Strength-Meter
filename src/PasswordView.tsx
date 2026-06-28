@@ -1,6 +1,53 @@
 import React from "react";
 import "./PasswordInput.css";
 import { usePasswordController } from "./PasswordController";
+import { PatternMatch, PatternType } from "./strengthModel";
+
+const PATTERN_SHORT: Record<PatternType, string> = {
+  [PatternType.KEYBOARD_WALK]: "Tastiera",
+  [PatternType.DATE]: "Data",
+  [PatternType.YEAR]: "Anno",
+  [PatternType.LEET]: "Leet",
+  [PatternType.REPEATED]: "Ripetuto",
+  [PatternType.SEQUENCE_ALPHA]: "Seq. lettere",
+  [PatternType.SEQUENCE_NUM]: "Seq. numeri",
+  [PatternType.DICTIONARY]: "Dizionario",
+  [PatternType.STRUCTURAL]: "Strutturale",
+};
+
+const PATTERN_TAG_CLASS: Record<PatternType, string> = {
+  [PatternType.KEYBOARD_WALK]: "patternTag patternTag--keyboard",
+  [PatternType.DATE]: "patternTag patternTag--date",
+  [PatternType.YEAR]: "patternTag patternTag--date",
+  [PatternType.LEET]: "patternTag patternTag--leet",
+  [PatternType.REPEATED]: "patternTag patternTag--repeated",
+  [PatternType.SEQUENCE_ALPHA]: "patternTag patternTag--sequence",
+  [PatternType.SEQUENCE_NUM]: "patternTag patternTag--sequence",
+  [PatternType.DICTIONARY]: "patternTag patternTag--dictionary",
+  [PatternType.STRUCTURAL]: "patternTag patternTag--structural",
+};
+
+interface PatternTagListProps {
+  patterns: PatternMatch[];
+}
+
+function PatternTagList({ patterns }: PatternTagListProps) {
+  if (patterns.length === 0) return null;
+
+  return (
+    <ul
+      className="patternTagList"
+      aria-label="Pattern rilevati nella password"
+    >
+      {patterns.map((match, idx) => (
+        <li key={idx} className={PATTERN_TAG_CLASS[match.type]}>
+          {PATTERN_SHORT[match.type]}{" "}
+          <span className="patternTag__segment">«{match.segment}»</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function PasswordView() {
   // Riceve stato e azioni dal Controller
@@ -8,11 +55,15 @@ export default function PasswordView() {
     password,
     showPassword,
     strength,
-    isChecking,
+    isCheckingLocal,
+    isCheckingOnline,
     validationError,
     richiestaAnalisiPassword,
     onToggleVisibility,
+    patterns,
   } = usePasswordController();
+
+  const isChecking = isCheckingLocal || isCheckingOnline;
 
   return (
     <main className="page">
@@ -80,6 +131,10 @@ export default function PasswordView() {
               <li key={idx}>{msg}</li>
             ))}
           </ul>
+        )}
+
+        {!isChecking && patterns.length > 0 && (
+          <PatternTagList patterns={patterns} />
         )}
       </section>
     </main>
