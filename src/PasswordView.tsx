@@ -49,6 +49,32 @@ function PatternTagList({ patterns }: PatternTagListProps) {
   );
 }
 
+interface PasswordPreviewProps {
+  password: string;
+  patterns: PatternMatch[];
+}
+
+function PasswordPreview({ password, patterns }: PasswordPreviewProps) {
+  if (!password || patterns.length === 0) return null;
+
+  // Il primo pattern è già il più grave
+  const worst = patterns[0];
+
+  const before  = password.slice(0, worst.start);
+  const segment = password.slice(worst.start, worst.end);
+  const after   = password.slice(worst.end);
+
+  return (
+    <p className="passwordPreview">
+      <span className="passwordPreview__text">
+        {before}
+        <mark className="segmentHighlight">{segment}</mark>
+        {after}
+      </span>
+    </p>
+  );
+}
+
 export default function PasswordView() {
   // Riceve stato e azioni dal Controller
   const {
@@ -135,6 +161,10 @@ export default function PasswordView() {
 
         {!isChecking && patterns.length > 0 && (
           <PatternTagList patterns={patterns} />
+        )}
+        
+        {!isChecking && patterns.length > 0 && (
+          <PasswordPreview password={password} patterns={patterns} />
         )}
       </section>
     </main>
