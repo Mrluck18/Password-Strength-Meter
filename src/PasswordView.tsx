@@ -1,7 +1,7 @@
 import React from "react";
 import "./PasswordInput.css";
 import { usePasswordController } from "./PasswordController";
-import { PatternMatch, PatternType } from "./strengthModel";
+import { ModificationSuggestion, PatternMatch, PatternType } from "./strengthModel";
 
 const PATTERN_SHORT: Record<PatternType, string> = {
   [PatternType.KEYBOARD_WALK]: "Tastiera",
@@ -60,9 +60,9 @@ function PasswordPreview({ password, patterns }: PasswordPreviewProps) {
   // Il primo pattern è già il più grave
   const worst = patterns[0];
 
-  const before  = password.slice(0, worst.start);
+  const before = password.slice(0, worst.start);
   const segment = password.slice(worst.start, worst.end);
-  const after   = password.slice(worst.end);
+  const after = password.slice(worst.end);
 
   return (
     <p className="passwordPreview">
@@ -72,6 +72,64 @@ function PasswordPreview({ password, patterns }: PasswordPreviewProps) {
         {after}
       </span>
     </p>
+  );
+}
+
+interface SuggestionBoxProps {
+  modification: ModificationSuggestion;
+}
+
+function SuggestionBox({ modification }: SuggestionBoxProps) {
+  const before = modification.original.slice(0, modification.weakStart);
+  const segment = modification.original.slice(
+    modification.weakStart,
+    modification.weakEnd
+  );
+  const after = modification.original.slice(modification.weakEnd);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(modification.modified);
+    } catch (err) {
+      console.error("Copia non riuscita:", err);
+    }
+  };
+
+  return (
+    <div
+      className="suggestionBox"
+      aria-label="Suggerimento di modifica minima"
+    >
+      <p className="suggestionBox__title">Modifica minima suggerita</p>
+
+      <div className="suggestionBox__row">
+        <span className="suggestionBox__label">Originale</span>
+        <code className="suggestionBox__value">
+          {before}
+          <mark className="segmentHighlight">{segment}</mark>
+          {after}
+        </code>
+      </div>
+
+      <div className="suggestionBox__arrow" aria-hidden="true">
+        →
+      </div>
+
+      <div className="suggestionBox__row">
+        <span className="suggestionBox__label">Suggerita</span>
+        <code className="suggestionBox__value">{modification.modified}</code>
+      </div>
+
+      <p className="suggestionBox__explanation">{modification.explanation}</p>
+
+      <button
+        type="button"
+        className="suggestionBox__copyButton"
+        onClick={handleCopy}
+      >
+        Copia
+      </button>
+    </div>
   );
 }
 
@@ -87,6 +145,7 @@ export default function PasswordView() {
     richiestaAnalisiPassword,
     onToggleVisibility,
     patterns,
+    modification,
   } = usePasswordController();
 
   const isChecking = isCheckingLocal || isCheckingOnline;
@@ -124,8 +183,8 @@ export default function PasswordView() {
           <p style={{ color: '#ff3b3b', fontSize: '14px', marginTop: '8px' }}>
             Sono ammessi solo caratteri alfanumerici e simboli speciali
           </p>
-         )}
-         
+        )}
+
         <div className="barBg" aria-hidden="true">
           <div
             className="barFill"
@@ -162,12 +221,15 @@ export default function PasswordView() {
         {!isChecking && patterns.length > 0 && (
           <PatternTagList patterns={patterns} />
         )}
-        
+
         {!isChecking && patterns.length > 0 && (
           <PasswordPreview password={password} patterns={patterns} />
+        )}
+
+        {!isChecking && modification && (
+          <SuggestionBox modification={modification} />
         )}
       </section>
     </main>
   );
 }
-
