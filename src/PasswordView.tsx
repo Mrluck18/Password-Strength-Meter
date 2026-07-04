@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import "./PasswordInput.css";
 import { usePasswordController } from "./PasswordController";
 import { ModificationSuggestion, PatternMatch, PatternType } from "./strengthModel";
@@ -133,6 +133,25 @@ function SuggestionBox({ modification }: SuggestionBoxProps) {
   );
 }
 
+function NistBadge() {
+  const tooltipId = useId();
+
+  return (
+    <span
+      className="nist-badge"
+      tabIndex={0}
+      aria-describedby={tooltipId}
+      aria-label="Conforme a NIST SP 800-63-4"
+    >
+      <span aria-hidden="true">✓</span>
+      <span>NIST SP 800-63-4</span>
+      <span id={tooltipId} role="tooltip" className="nist-tooltip">
+        Password forte secondo la soglia adottata dal meter.
+      </span>
+    </span>
+  );
+}
+
 export default function PasswordView() {
   // Riceve stato e azioni dal Controller
   const {
@@ -199,7 +218,9 @@ export default function PasswordView() {
         <p className="status" role="status" aria-live="polite">
           {isChecking ? "Controllo database..." : strength.label}
         </p>
-
+        
+        {!isChecking && strength.label === "Forte" && <NistBadge />}
+        
         {!isChecking && strength.suggestions?.length > 0 && (
           <ul
             style={{
