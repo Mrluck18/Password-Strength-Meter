@@ -216,7 +216,11 @@ export default function PasswordView() {
         </div>
 
         <p className="status" role="status" aria-live="polite">
-          {isChecking ? "Controllo database..." : strength.label}
+          {isCheckingLocal
+          ? "Analisi pattern…"
+          : isCheckingOnline
+          ? "Verifica database…"
+          : strength.label}
         </p>
         
         {!isChecking && strength.label === "Forte" && <NistBadge />}
