@@ -553,10 +553,9 @@ const TOKEN_CONSONANTS = "bcdfghjkmnpqrstvwxyz";
 const TOKEN_DIGITS     = "2357";   // esclusi 0,1,4,6,8,9 — non formano sequenze comuni
 const TOKEN_CHARSET    = TOKEN_CONSONANTS + TOKEN_DIGITS;
 
-
 function generaTokenCasuale(len: number): string {
   const array = new Uint8Array(len);
-  Math.random(array);
+  window.crypto.getRandomValues(array);
   return Array.from(array)
     .map((byte) => TOKEN_CHARSET[byte % TOKEN_CHARSET.length])
     .join("");
