@@ -580,25 +580,99 @@ export function substituteWeakSegment(
 ): ModificationSuggestion | null {
   if (matches.length === 0) return null;
 
-  // Seleziona il PatternMatch con penalità massima (in caso di parità: il più lungo)
   const worst = [...matches].sort((a, b) =>
     b.penalty !== a.penalty
       ? b.penalty - a.penalty
       : (b.end - b.start) - (a.end - a.start)
   )[0];
 
-  const segLen  = worst.end - worst.start;
-  const token   = generaTokenCasuale(segLen);
-  const modified =
-    pwd.slice(0, worst.start) + token + pwd.slice(worst.end);
+  // Posizioni (assolute nella password) da sostituire — possono essere non contigue
+  let positions: number[] = [];
+
+  switch (worst.type) {
+    case PatternType.DATE:
+      if (worst.segment.length === 8 || worst.segment.length === 6) {
+        const yearLen = worst.segment.length === 8 ? 4 : 2;
+        for (let i = worst.end - yearLen; i < worst.end; i++) positions.push(i);
+      } else {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+
+    case PatternType.YEAR:
+      for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      break;
+
+    case PatternType.KEYBOARD_WALK:
+      if (worst.segment.length > 2) {
+        for (let i = worst.start + 1; i < worst.end - 1; i++) positions.push(i);
+      } else {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+
+    case PatternType.LEET:
+      // Fix: raccoglie SOLO le posizioni effettivamente non-alfabetiche,
+      // anche se non contigue, invece di prendere il range min-max.
+      for (let i = worst.start; i < worst.end; i++) {
+        if (!/[a-z]/i.test(pwd[i])) positions.push(i);
+      }
+      if (positions.length === 0) {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+
+    case PatternType.REPEATED:
+      if (worst.segment.length > 1) {
+        for (let i = worst.start + 1; i < worst.end; i++) positions.push(i);
+      } else {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+
+    case PatternType.SEQUENCE_ALPHA:
+    case PatternType.SEQUENCE_NUM:
+    case PatternType.DICTIONARY:
+      if (worst.segment.length > 2) {
+        for (let i = worst.start + 1; i < worst.end - 1; i++) positions.push(i);
+      } else {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+
+    case PatternType.STRUCTURAL:
+      if (/^[!@#$%^&*\-_+=?]+$/.test(worst.segment)) {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      } else if (worst.segment.length > 4) {
+        for (let i = worst.end - 4; i < worst.end; i++) positions.push(i);
+      } else {
+        for (let i = worst.start; i < worst.end; i++) positions.push(i);
+      }
+      break;
+  }
+
+  // Genera un token della lunghezza esatta delle posizioni da sostituire
+  const token = generaTokenCasuale(positions.length);
+
+  // Ricostruisce la password sostituendo SOLO le posizioni indicate,
+  // preservando tutto il resto carattere per carattere
+  const chars = pwd.split("");
+  positions.forEach((pos, idx) => {
+    chars[pos] = token[idx];
+  });
+  const modified = chars.join("");
+
+  // weakStart/weakEnd per l'evidenziazione in View: min e max delle posizioni toccate
+  const weakStart = Math.min(...positions);
+  const weakEnd   = Math.max(...positions) + 1;
 
   return {
     original: pwd,
     modified,
-    weakSegment: worst.segment,
-    weakStart: worst.start,
-    weakEnd: worst.end,
-    explanation: `${PATTERN_LABEL[worst.type]} «${worst.segment}» sostituita con token casuale`,
+    weakSegment: pwd.slice(weakStart, weakEnd),
+    weakStart,
+    weakEnd,
+    explanation: `${PATTERN_LABEL[worst.type]} «${pwd.slice(weakStart, weakEnd)}» sostituita con token casuale`,
   };
 }
 
